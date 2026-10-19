@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import { layoutsAbove, matchScreen, type Screen } from './routes'
+import { layoutsAbove, matchScreen, type Edge, type Screen } from './routes'
 
-export type Edge = { from: string; to: string; kind?: 'tab' }
+export type { Edge } from './routes'
 
 type PathRegistry = Record<string, unknown>
 

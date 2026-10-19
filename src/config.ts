@@ -1,13 +1,11 @@
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
-import type { Edge } from './graph'
 import type { DynamicScreen } from './ids'
-import type { Screen } from './routes'
+import type { Edge, Screen } from './routes'
 
-export type { Edge } from './graph'
 export type { DynamicScreen, IdSource, TapThrough } from './ids'
-export type { Screen } from './routes'
+export type { Edge, Screen } from './routes'
 
 export type ScreenmapConfig = {
   root?: string

@@ -1,6 +1,8 @@
 import { readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
+export type Edge = { from: string; to: string; kind?: 'tab' }
+
 export type Screen = {
   id: string
   file: string
