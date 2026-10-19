@@ -3,9 +3,11 @@ import { dirname, resolve } from 'node:path'
 
 import type { DynamicScreen } from './ids'
 import type { Edge, Screen } from './routes'
+import type { Variant } from './variants'
 
 export type { DynamicScreen, IdSource, TapThrough } from './ids'
 export type { Edge, Screen } from './routes'
+export type { Variant } from './variants'
 
 export type ScreenmapConfig = {
   root?: string
@@ -19,6 +21,9 @@ export type ScreenmapConfig = {
   loginPath?: string
   chromePath?: string
   params?: Record<string, string>
+  storage?: Record<string, string>
+  loggedOut?: (screen: Screen) => boolean
+  variants?: Record<string, Variant[]>
   pathRegistry?: { file: string; exportName: string }
   dynamicScreens?: Record<string, DynamicScreen>
   expandScreens?: (screens: Screen[], appRoot: string) => Screen[]

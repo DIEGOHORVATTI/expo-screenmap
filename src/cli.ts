@@ -8,10 +8,12 @@ import { createCapturePool, type ShotResult } from './capture'
 import { loadConfig } from './config'
 import { affectedScreens, loadPathRegistry, navigationEdges, SourceGraph, type Edge } from './graph'
 import { createIdRecorder } from './ids'
+import { orderByLayouts } from './order'
 import { ensureMetro } from './metro'
 import { discoverScreens, screenUrl, type Screen } from './routes'
 import { screenWithShot, startMapServer } from './server'
 import { mergeEdges, tabBarEdges } from './tabs'
+import { applyRules, variantEdges } from './variants'
 
 const DEBOUNCE_MS = 1500
 
@@ -58,7 +60,7 @@ async function run() {
   const graph = new SourceGraph(config.appRoot)
   let registry = await loadPathRegistry(config.appRoot, config.pathRegistry)
   const loadScreens = () => {
-    const screens = discoverScreens(config.appDir)
+    const screens = applyRules(orderByLayouts(config.appDir, discoverScreens(config.appDir)), config)
     return config.expandScreens ? config.expandScreens(screens, config.appRoot) : screens
   }
   let screens: Screen[] = loadScreens()
@@ -73,7 +75,11 @@ async function run() {
         screens.filter((screen) => !screen.id.includes('#')),
         registry,
       ),
-      [...tabBarEdges(graph, screens), ...(config.extraEdges?.(screens) ?? [])],
+      [
+        ...tabBarEdges(graph, screens),
+        ...variantEdges(screens, config.variants),
+        ...(config.extraEdges?.(screens) ?? []),
+      ],
     )
   }
   const { params } = config
@@ -98,7 +104,7 @@ async function run() {
         config.appOrigin,
         prefs,
         jobState,
-        job.storage,
+        { ...config.storage, ...job.storage },
       )
       context.on('response', async (response) => {
         const { pathname, search } = new URL(response.url())

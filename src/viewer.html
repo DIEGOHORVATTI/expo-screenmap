@@ -236,14 +236,14 @@
         for (const group of groupsInOrder()) {
           const screens = map.screens.filter((s) => s.group === group)
           titles.push({ group, x })
+          const cols = Math.ceil(screens.length / ROWS)
           screens.forEach((screen, index) => {
-            const col = Math.floor(index / ROWS)
             positions.set(screen.id, {
-              x: x + col * (NODE_W + GAP_X / 2),
-              y: 70 + (index % ROWS) * (NODE_H + GAP_Y),
+              x: x + (index % cols) * (NODE_W + GAP_X / 2),
+              y: 70 + Math.floor(index / cols) * (NODE_H + GAP_Y),
             })
           })
-          x += Math.ceil(screens.length / ROWS) * (NODE_W + GAP_X / 2) + GAP_X
+          x += cols * (NODE_W + GAP_X / 2) + GAP_X
         }
         return titles
       }

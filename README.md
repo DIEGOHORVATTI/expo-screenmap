@@ -67,12 +67,20 @@ export default defineConfig({
   root: 'apps/mobile',
   locale: 'pt-BR',
   colorScheme: 'dark',
+  storage: { language: 'pt-BR' },
+  loggedOut: (screen) => screen.group === 'auth',
   pathRegistry: { file: 'src/constants/paths.ts', exportName: 'PATHS' },
-  params: { 'settings/[tab]': '/settings/profile' },
+  variants: {
+    '(auth)/onboarding/index': [
+      { name: 'goal', storage: { onboardingStep: '0' } },
+      { name: 'height', storage: { onboardingStep: '1' } },
+    ],
+  },
   dynamicScreens: {
-    'post/[id]': {
-      sources: [{ endpoint: /^\/posts\?/, pick: (body: any) => body?.posts?.[0]?.id }],
-      url: (id) => `/post/${id}`,
+    'post/[id]': { sources: [{ endpoint: '/posts', pick: 'posts.0.id' }] },
+    'post/edit': {
+      sources: [{ endpoint: '/posts', pick: (body) => body.posts.find((p) => p.mine)?.id }],
+      url: (id) => `/post/edit?id=${id}`,
     },
   },
 })
@@ -91,14 +99,16 @@ export default defineConfig({
 | `loginPath`      | `/login`        | Route opened by `expo-screenmap login`.                                 |
 | `chromePath`     |                 | Chromium executable, when Playwright's cache is not found.              |
 | `params`         | `{}`            | Fixed URL per screen id.                                                |
+| `storage`        | `{}`            | `localStorage` entries set before every page loads.                     |
+| `loggedOut`      |                 | `(screen) => boolean`: capture these screens without the saved session. |
+| `variants`       |                 | Per screen id, a list of `{ name, storage?, anonymous? }` captured as separate, chained nodes (multi-step flows). |
 | `pathRegistry`   |                 | Module exporting an object of paths / path builders.                    |
-| `dynamicScreens` | `{}`            | Per screen id: API `sources` to sniff an id from and the `url` to open. |
+| `dynamicScreens` | `{}`            | Per screen id: API `sources` (`endpoint` path or RegExp, `pick` dotted path or function) and an optional `url` (defaults to the route with the id filled in). |
 | `expandScreens`  |                 | `(screens, appRoot) => screens` to split a screen into variants.        |
 | `extraEdges`     |                 | `(screens) => edges` for links the source scan cannot see.              |
 
-A screen variant can set `anonymous: true` (captured without the saved session)
-and `storage` (`localStorage` entries applied before the page loads) — useful
-for multi-step flows such as onboarding.
+Screens are laid out in the order their `_layout.tsx` declares them
+(`<Stack.Screen name="…" />`, tab bar order), row by row.
 
 <img width="2796" height="1649" alt="image" src="https://github.com/user-attachments/assets/dfc4a187-d9c7-4468-9146-3dd78c183888" />
 
