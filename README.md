@@ -90,6 +90,9 @@ A screen variant can set `anonymous: true` (captured without the saved session)
 and `storage` (`localStorage` entries applied before the page loads) — useful
 for multi-step flows such as onboarding.
 
+<img width="2796" height="1649" alt="image" src="https://github.com/user-attachments/assets/dfc4a187-d9c7-4468-9146-3dd78c183888" />
+
+
 ## License
 
 MIT
