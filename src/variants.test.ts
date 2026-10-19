@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import type { Screen } from './routes'
-import { applyRules, variantEdges } from './variants'
+import { applyRules, moveFlowExits, variantEdges } from './variants'
 
 const screen = (id: string, group = 'auth'): Screen => ({ id, file: id, pattern: `/${id}`, group })
 
@@ -19,4 +19,21 @@ test('splits a screen into chained variants and signs out the rest of the group'
   ])
   expect(screens[1].storage).toEqual({ step: '1' })
   expect(variantEdges(screens, variants)).toEqual([{ from: 'flow', to: 'flow#1-b' }])
+})
+
+test('a flow leaves from its last step, but goes back from the first', () => {
+  const variants = { flow: [{ name: 'a' }, { name: 'b' }] }
+  const screens = applyRules([screen('flow'), screen('welcome'), screen('home', 'tabs')], {
+    variants,
+  })
+  const edges = [
+    { from: 'welcome', to: 'flow' },
+    { from: 'flow', to: 'welcome' },
+    { from: 'flow', to: 'home' },
+  ]
+  expect(moveFlowExits(edges, screens, variants)).toEqual([
+    { from: 'welcome', to: 'flow' },
+    { from: 'flow', to: 'welcome' },
+    { from: 'flow#1-b', to: 'home' },
+  ])
 })

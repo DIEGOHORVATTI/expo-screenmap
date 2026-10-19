@@ -37,3 +37,24 @@ export function variantEdges(screens: Screen[], variants: ScreenRules['variants'
     return chain.slice(1).map((screen, index) => ({ from: chain[index].id, to: screen.id }))
   })
 }
+
+export function moveFlowExits(
+  edges: Edge[],
+  screens: Screen[],
+  variants: ScreenRules['variants'] = {},
+) {
+  const lastStep = new Map(
+    Object.keys(variants).map((baseId) => [
+      baseId,
+      screens.filter((screen) => screen.id === baseId || screen.id.startsWith(`${baseId}#`)).at(-1)
+        ?.id,
+    ]),
+  )
+  const isBackEdge = (edge: Edge) =>
+    edges.some((other) => other.from === edge.to && other.to === edge.from)
+  return edges.map((edge) => {
+    const last = lastStep.get(edge.from)
+    const leavesFlow = !edge.to.startsWith(`${edge.from}#`)
+    return last && leavesFlow && !isBackEdge(edge) ? { ...edge, from: last } : edge
+  })
+}

@@ -13,7 +13,7 @@ import { ensureMetro } from './metro'
 import { discoverScreens, screenUrl, type Screen } from './routes'
 import { screenWithShot, startMapServer } from './server'
 import { mergeEdges, tabBarEdges } from './tabs'
-import { applyRules, variantEdges } from './variants'
+import { applyRules, moveFlowExits, variantEdges } from './variants'
 
 const DEBOUNCE_MS = 1500
 
@@ -60,7 +60,10 @@ async function run() {
   const graph = new SourceGraph(config.appRoot)
   let registry = await loadPathRegistry(config.appRoot, config.pathRegistry)
   const loadScreens = () => {
-    const screens = applyRules(orderByLayouts(config.appDir, discoverScreens(config.appDir)), config)
+    const screens = applyRules(
+      orderByLayouts(config.appDir, discoverScreens(config.appDir)),
+      config,
+    )
     return config.expandScreens ? config.expandScreens(screens, config.appRoot) : screens
   }
   let screens: Screen[] = loadScreens()
@@ -70,10 +73,14 @@ async function run() {
     : {}
   function allEdges() {
     return mergeEdges(
-      navigationEdges(
-        graph,
-        screens.filter((screen) => !screen.id.includes('#')),
-        registry,
+      moveFlowExits(
+        navigationEdges(
+          graph,
+          screens.filter((screen) => !screen.id.includes('#')),
+          registry,
+        ),
+        screens,
+        config.variants,
       ),
       [
         ...tabBarEdges(graph, screens),
@@ -99,13 +106,10 @@ async function run() {
   const pool = createCapturePool({
     async openContext(job) {
       const jobState = job.anonymous ? undefined : statePath
-      const context = await openPhoneContext(
-        browser,
-        config.appOrigin,
-        prefs,
-        jobState,
-        { ...config.storage, ...job.storage },
-      )
+      const context = await openPhoneContext(browser, config.appOrigin, prefs, jobState, {
+        ...config.storage,
+        ...job.storage,
+      })
       context.on('response', async (response) => {
         const { pathname, search } = new URL(response.url())
         if (!recorder.wants(pathname + search) || !response.ok()) return
@@ -141,7 +145,7 @@ async function run() {
 
   async function captureInWaves() {
     const done = new Set<string>()
-    for (let wave = screens.filter(isReady); wave.length; ) {
+    for (let wave = screens.filter(isReady); wave.length;) {
       wave.forEach((screen) => done.add(screen.id))
       capture(wave)
       await pool.idle()
