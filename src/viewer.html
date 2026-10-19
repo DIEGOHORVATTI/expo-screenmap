@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Screenmap</title>
+    <style>
+      :root {
+        --bg: #0e0f11;
+        --dot: #26282d;
+        --card: #17181b;
+        --line: #3a3d44;
+        --text: #e7e8ea;
+        --muted: #8b8f98;
+        --accent: #22c55e;
+        --incoming: #60a5fa;
+        --danger: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        user-select: none;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+      }
+      #viewport {
+        position: fixed;
+        inset: 0;
+        cursor: grab;
+        background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
+      #viewport.dragging {
+        cursor: grabbing;
+      }
+      #canvas {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+      }
+      #canvas.moving {
+        will-change: transform;
+      }
+      svg {
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: visible;
+        pointer-events: none;
+      }
+      path.edge {
+        fill: none;
+        stroke: var(--line);
+        stroke-width: 2;
+        opacity: 0.35;
+        transition:
+          opacity 0.15s,
+          stroke 0.15s;
+      }
+      path.edge {
+        marker-end: url(#arrow);
+      }
+      path.edge.tab {
+        stroke-dasharray: 10 8;
+      }
+      path.edge.out,
+      path.edge.in {
+        opacity: 1;
+        stroke-width: 3;
+      }
+      path.edge.out {
+        stroke: var(--accent);
+        marker-end: url(#arrow-out);
+      }
+      path.edge.in {
+        stroke: var(--incoming);
+        marker-end: url(#arrow-in);
+      }
+      .legend-out {
+        color: var(--accent);
+      }
+      .legend-in {
+        color: var(--incoming);
+      }
+      .group-title {
+        position: absolute;
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .node {
+        position: absolute;
+        width: 220px;
+      }
+      .node .label {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 2px 8px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .node .label span:last-child {
+        color: var(--muted);
+        font-weight: 400;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .node .frame {
+        width: 220px;
+        height: 477px;
+        border-radius: 22px;
+        overflow: hidden;
+        background: var(--card);
+        border: 2px solid var(--line);
+        transition:
+          border-color 0.3s,
+          box-shadow 0.3s;
+      }
+      .node .frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        pointer-events: none;
+        -webkit-user-drag: none;
+      }
+      .node.fresh .frame {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.25);
+      }
+      .node.broken .frame {
+        border-color: var(--danger);
+      }
+      .node.dim {
+        opacity: 0.25;
+      }
+      .node .error {
+        color: var(--danger);
+        font-size: 12px;
+        padding-top: 6px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      #hud {
+        position: fixed;
+        left: 16px;
+        top: 16px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: rgba(23, 24, 27, 0.9);
+        border: 1px solid var(--line);
+        z-index: 2;
+      }
+      #hud b {
+        color: var(--accent);
+      }
+      #zoom {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 3;
+      }
+      #zoom img {
+        max-height: 92vh;
+        border-radius: 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">loading…</div>
+    <div id="viewport">
+      <div id="canvas"><svg id="edges"></svg></div>
+    </div>
+    <div id="zoom"><img alt="" /></div>
+    <script>
+      const NODE_W = 220
+      const NODE_H = 477 + 30
+      const GAP_X = 120
+      const GAP_Y = 90
+      const ROWS = 3
+      const GROUP_ORDER = ['auth', 'tabs']
+
+      const viewport = document.getElementById('viewport')
+      const canvas = document.getElementById('canvas')
+      const svg = document.getElementById('edges')
+      const hud = document.getElementById('hud')
+      const zoom = document.getElementById('zoom')
+      const view = { x: 40, y: 80, scale: 0.45 }
+      let map = { screens: [], edges: [], shots: {} }
+      let pending = 0
+      const positions = new Map()
+      const nodes = new Map()
+
+      let settleTimer
+
+      function applyView() {
+        canvas.classList.add('moving')
+        clearTimeout(settleTimer)
+        settleTimer = setTimeout(() => canvas.classList.remove('moving'), 300)
+        canvas.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`
+        viewport.style.backgroundPosition = `${view.x}px ${view.y}px`
+        viewport.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`
+      }
+
+      function groupsInOrder() {
+        const groups = [...new Set(map.screens.map((s) => s.group))]
+        return groups.sort((a, b) => {
+          const rank = (g) =>
+            GROUP_ORDER.includes(g) ? GROUP_ORDER.indexOf(g) : GROUP_ORDER.length
+          return rank(a) - rank(b) || a.localeCompare(b)
+        })
+      }
+
+      function layout() {
+        positions.clear()
+        const titles = []
+        let x = 0
+        for (const group of groupsInOrder()) {
+          const screens = map.screens.filter((s) => s.group === group)
+          titles.push({ group, x })
+          screens.forEach((screen, index) => {
+            const col = Math.floor(index / ROWS)
+            positions.set(screen.id, {
+              x: x + col * (NODE_W + GAP_X / 2),
+              y: 70 + (index % ROWS) * (NODE_H + GAP_Y),
+            })
+          })
+          x += Math.ceil(screens.length / ROWS) * (NODE_W + GAP_X / 2) + GAP_X
+        }
+        return titles
+      }
+
+      const ARROW_COLORS = { arrow: '#3a3d44', 'arrow-out': '#22c55e', 'arrow-in': '#60a5fa' }
+      const ARROW_DEFS = `<defs>${Object.entries(ARROW_COLORS)
+        .map(
+          ([id, color]) =>
+            `<marker id="${id}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="28" markerHeight="28" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${color}" /></marker>`,
+        )
+        .join('')}</defs>`
+
+      function edgePath(from, to) {
+        const a = positions.get(from)
+        const b = positions.get(to)
+        const sx = a.x + NODE_W
+        const sy = a.y + NODE_H / 2
+        const tx = b.x
+        const ty = b.y + NODE_H / 2
+        const bend = Math.max(80, Math.abs(tx - sx) / 2)
+        return `M${sx},${sy} C${sx + bend},${sy} ${tx - bend},${ty} ${tx},${ty}`
+      }
+
+      function shotSrc(screen) {
+        const shot = map.shots[screen.id]
+        return shot ? `/shots/${screen.shot}?v=${shot.at}` : ''
+      }
+
+      function paintNode(screen) {
+        const node = nodes.get(screen.id)
+        if (!node) return
+        const shot = map.shots[screen.id]
+        const img = node.querySelector('img')
+        const src = shotSrc(screen)
+        if (src && img.dataset.src !== src) {
+          img.dataset.src = src
+          const next = new Image()
+          next.onload = () => img.dataset.src === src && (img.src = src)
+          next.src = src
+        }
+        node.classList.toggle('broken', !!shot?.errors.length)
+        node.querySelector('.error').textContent = shot?.errors[0] ?? ''
+      }
+
+      function render() {
+        canvas.querySelectorAll('.node, .group-title').forEach((el) => el.remove())
+        nodes.clear()
+        for (const { group, x } of layout()) {
+          const title = document.createElement('div')
+          title.className = 'group-title'
+          title.textContent = group
+          title.style.left = `${x}px`
+          canvas.appendChild(title)
+        }
+        for (const screen of map.screens) {
+          const { x, y } = positions.get(screen.id)
+          const node = document.createElement('div')
+          node.className = 'node'
+          node.style.left = `${x}px`
+          node.style.top = `${y}px`
+          node.innerHTML = `<div class="label"><span></span><span></span></div><div class="frame"><img alt="" decoding="async" /></div><div class="error"></div>`
+          node.querySelector('.label span').textContent = screen.label ?? screen.pattern
+          node.querySelector('.label span:last-child').textContent = screen.id
+          node.addEventListener('mouseenter', () => !drag && highlight(screen.id))
+          node.addEventListener('mouseleave', () => !drag && highlight(null))
+          node.addEventListener('click', () => openZoom(screen))
+          canvas.appendChild(node)
+          nodes.set(screen.id, node)
+          paintNode(screen)
+        }
+        svg.innerHTML =
+          ARROW_DEFS +
+          map.edges
+            .filter((e) => positions.has(e.from) && positions.has(e.to))
+            .map(
+              (e) =>
+                `<path class="edge${e.kind === 'tab' ? ' tab' : ''}" data-from="${e.from}" data-to="${e.to}" d="${edgePath(e.from, e.to)}" />`,
+            )
+            .join('')
+        updateHud()
+      }
+
+      function highlight(id) {
+        const linked = new Set(id ? [id] : [])
+        svg.querySelectorAll('path.edge').forEach((path) => {
+          const outgoing = !!id && path.dataset.from === id
+          const incoming = !!id && path.dataset.to === id
+          path.classList.toggle('out', outgoing)
+          path.classList.toggle('in', incoming)
+          if (outgoing || incoming) linked.add(path.dataset.from).add(path.dataset.to)
+        })
+        nodes.forEach((node, nodeId) => node.classList.toggle('dim', !!id && !linked.has(nodeId)))
+      }
+
+      function openZoom(screen) {
+        if (moved) return
+        zoom.querySelector('img').src = shotSrc(screen)
+        zoom.style.display = 'flex'
+      }
+      zoom.addEventListener('click', () => (zoom.style.display = 'none'))
+
+      function updateHud() {
+        const shots = Object.keys(map.shots).length
+        const broken = Object.values(map.shots).filter((s) => s.errors.length).length
+        hud.innerHTML = `<b>${map.screens.length}</b> screens · <b>${map.edges.length}</b> links · ${shots} shots${broken ? ` · <span style="color:var(--danger)">${broken} failed</span>` : ''}${pending ? ` · capturing ${pending}…` : ''}<br /><span class="legend-out">→ opens</span> · <span class="legend-in">← opened by</span> <span style="color:var(--muted)">(hover a screen) · dashed = tab bar</span>`
+      }
+
+      let drag = null
+      let moved = false
+      viewport.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        drag = { x: e.clientX - view.x, y: e.clientY - view.y, sx: e.clientX, sy: e.clientY }
+        moved = false
+        viewport.classList.add('dragging')
+      })
+      window.addEventListener('pointermove', (e) => {
+        if (!drag) return
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 4) moved = true
+        view.x = e.clientX - drag.x
+        view.y = e.clientY - drag.y
+        applyView()
+      })
+      window.addEventListener('pointerup', () => {
+        drag = null
+        viewport.classList.remove('dragging')
+      })
+      viewport.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault()
+          const factor = Math.exp(-e.deltaY * 0.0015)
+          const scale = Math.min(2, Math.max(0.08, view.scale * factor))
+          view.x = e.clientX - ((e.clientX - view.x) * scale) / view.scale
+          view.y = e.clientY - ((e.clientY - view.y) * scale) / view.scale
+          view.scale = scale
+          applyView()
+        },
+        { passive: false },
+      )
+
+      function flash(id) {
+        const node = nodes.get(id)
+        if (!node) return
+        node.classList.add('fresh')
+        setTimeout(() => node.classList.remove('fresh'), 2500)
+      }
+
+      let structure = ''
+
+      async function loadMap() {
+        map = await (await fetch('/map.json')).json()
+        const next = JSON.stringify([map.screens.map((s) => s.id), map.edges])
+        if (next === structure) {
+          map.screens.forEach(paintNode)
+          return updateHud()
+        }
+        structure = next
+        render()
+      }
+
+      const events = new EventSource('/events')
+      events.onmessage = (message) => {
+        const event = JSON.parse(message.data)
+        if (event.type === 'map') return void loadMap()
+        if (event.type === 'pending') pending = event.count
+        if (event.type === 'shot') {
+          map.shots[event.shot.id] = event.shot
+          const screen = map.screens.find((s) => s.id === event.shot.id)
+          if (screen) paintNode(screen)
+          flash(event.shot.id)
+        }
+        updateHud()
+      }
+
+      applyView()
+      loadMap()
+    </script>
+  </body>
+</html>
