@@ -13,6 +13,17 @@ const transpilers = {
   tsx: new Bun.Transpiler({ loader: 'tsx' }),
   ts: new Bun.Transpiler({ loader: 'ts' }),
 }
+
+function scanImports(file: string, source: string) {
+  if (!source) return []
+  const transpiler = file.endsWith('.tsx') ? transpilers.tsx : transpilers.ts
+  try {
+    return transpiler.scanImports(source).map((entry) => entry.path)
+  } catch {
+    return null
+  }
+}
+
 const SAMPLE_ARG = ['x']
 const EXTENSIONS = ['.web.tsx', '.web.ts', '.tsx', '.ts', '.js']
 const MEMBER_CHAIN = /\b[A-Za-z_$][\w$]*(?:\.[a-zA-Z]+)+/g
@@ -55,10 +66,8 @@ export class SourceGraph {
 
   private importsOf(file: string) {
     if (!this.imports.has(file)) {
-      const transpiler = file.endsWith('.tsx') ? transpilers.tsx : transpilers.ts
-      const specs = this.source(file)
-        ? transpiler.scanImports(this.source(file)).map((entry) => entry.path)
-        : []
+      const specs = scanImports(file, this.source(file))
+      if (!specs) return []
       const resolved = specs
         .map((spec) => resolveImport(this.appRoot, file, spec))
         .filter((path): path is string => !!path)
