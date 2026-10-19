@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import type { BrowserContext } from 'playwright-core'
+import type { BrowserContext, Page, Request } from 'playwright-core'
 
 import type { TapThrough } from './ids'
 
@@ -21,15 +21,38 @@ type CapturePoolOptions = {
   onShot: (result: ShotResult) => void
 }
 
-const SETTLE_MS = 1200
-const NETWORK_IDLE_TIMEOUT_MS = 8000
-const SPINNER_TIMEOUT_MS = 5000
-const HIDE_DEV_OVERLAYS = '#error-toast { display: none !important; } video { visibility: hidden !important; }'
+const QUIET_MS = 1500
+const QUIET_TIMEOUT_MS = 20_000
+const POLL_MS = 200
+const TAP_TIMEOUT_MS = 8000
+const STREAMING_TYPES = new Set(['websocket', 'eventsource'])
+const HIDE_DEV_OVERLAYS =
+  '#error-toast { display: none !important; } video { visibility: hidden !important; }'
 
 function noVisibleSpinner() {
   return ![...document.querySelectorAll('[role="progressbar"]')].some(
     (element) => (element as HTMLElement).offsetParent !== null,
   )
+}
+
+function trackInflight(page: Page) {
+  let inflight = 0
+  const done = (request: Request) => !STREAMING_TYPES.has(request.resourceType()) && inflight--
+  page.on('request', (request) => !STREAMING_TYPES.has(request.resourceType()) && inflight++)
+  page.on('requestfinished', done)
+  page.on('requestfailed', done)
+  return () => inflight
+}
+
+async function waitUntilQuiet(page: Page, inflight: () => number) {
+  const deadline = Date.now() + QUIET_TIMEOUT_MS
+  let quietSince = Date.now()
+  while (Date.now() < deadline) {
+    const busy = inflight() > 0 || !(await page.evaluate(noVisibleSpinner))
+    if (busy) quietSince = Date.now()
+    else if (Date.now() - quietSince >= QUIET_MS) return
+    await page.waitForTimeout(POLL_MS)
+  }
 }
 
 export function shotFileName(id: string) {
@@ -41,6 +64,7 @@ async function captureOne(job: ShotJob, options: CapturePoolOptions): Promise<Sh
   const startedAt = Date.now()
   const context = await options.openContext(job)
   const page = await context.newPage()
+  const inflight = trackInflight(page)
   page.on('pageerror', (error) => errors.push(error.message.split('\n')[0]))
   try {
     await page.goto(`${options.appOrigin}${job.via?.path ?? job.url}`, {
@@ -48,21 +72,10 @@ async function captureOne(job: ShotJob, options: CapturePoolOptions): Promise<Sh
       timeout: 120_000,
     })
     if (job.via) {
-      await page
-        .waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS })
-        .catch(() => {})
-      await page
-        .locator(job.via.tap)
-        .first()
-        .click({ force: true, timeout: NETWORK_IDLE_TIMEOUT_MS })
+      await waitUntilQuiet(page, inflight)
+      await page.locator(job.via.tap).first().click({ force: true, timeout: TAP_TIMEOUT_MS })
     }
-    await page.waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS }).catch(() => {})
-    await page
-      .waitForFunction(noVisibleSpinner, null, { timeout: SPINNER_TIMEOUT_MS })
-      .catch(() => {})
-    await page.waitForTimeout(SETTLE_MS)
-    await page.waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT_MS }).catch(() => {})
-    await page.waitForTimeout(SETTLE_MS / 2)
+    await waitUntilQuiet(page, inflight)
     await page.addStyleTag({ content: HIDE_DEV_OVERLAYS })
     await page.screenshot({ path: join(options.shotsDir, shotFileName(job.id)) })
   } catch (error) {
