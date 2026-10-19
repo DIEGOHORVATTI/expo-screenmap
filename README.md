@@ -31,7 +31,9 @@ const { withScreenmapMetro } = require('expo-screenmap/expo')
 module.exports = withScreenmapMetro(getDefaultConfig(__dirname))
 ```
 
-  `withScreenmapWeb` adds the `web` platform with `output: 'single'`.
+  `withScreenmapWeb` is for apps that do not ship web: it adds the `web` platform
+  with `output: 'single'` under screenmap and otherwise pins `['ios', 'android']`,
+  so installing `react-native-web` does not change your Expo fingerprint.
   `withScreenmapMetro` blocks `react-dom` copies built for another React version
   (Bun isolated installs link several) and lets Metro find the web deps installed
   higher up in a monorepo.

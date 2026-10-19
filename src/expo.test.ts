@@ -20,10 +20,13 @@ afterEach(() => {
   delete process.env.SCREENMAP
 })
 
-test('leaves configs untouched outside screenmap', () => {
+test('keeps native-only platforms and metro config outside screenmap', () => {
   const config: ExpoConfig = { web: { output: 'static' } }
   expect(withScreenmapMetro(appWithReact('19.2.3')).resolver.blockList).toEqual([NATIVE_ONLY])
-  expect(withScreenmapWeb(config)).toEqual({ web: { output: 'static' } })
+  expect(withScreenmapWeb(config)).toEqual({
+    platforms: ['ios', 'android'],
+    web: { output: 'static' },
+  })
 })
 
 test('enables single-page web and blocks react-dom builds of another react version', () => {

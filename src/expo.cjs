@@ -32,8 +32,8 @@ function withScreenmapMetro(config) {
 }
 
 function withScreenmapWeb(config) {
-  if (!isScreenmap()) return config
   const platforms = config.platforms ?? ['ios', 'android']
+  if (!isScreenmap()) return { ...config, platforms }
   return {
     ...config,
     platforms: platforms.includes('web') ? platforms : [...platforms, 'web'],
