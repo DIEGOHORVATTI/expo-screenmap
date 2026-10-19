@@ -194,9 +194,7 @@
       const NODE_W = 220
       const NODE_H = 477 + 30
       const GAP_X = 120
-      const GAP_Y = 90
-      const ROWS = 3
-      const GROUP_ORDER = ['auth', 'tabs']
+      const GAP_Y = 140
 
       const viewport = document.getElementById('viewport')
       const canvas = document.getElementById('canvas')
@@ -220,32 +218,76 @@
         viewport.style.backgroundSize = `${24 * view.scale}px ${24 * view.scale}px`
       }
 
-      function groupsInOrder() {
-        const groups = [...new Set(map.screens.map((s) => s.group))]
-        return groups.sort((a, b) => {
-          const rank = (g) =>
-            GROUP_ORDER.includes(g) ? GROUP_ORDER.indexOf(g) : GROUP_ORDER.length
-          return rank(a) - rank(b) || a.localeCompare(b)
-        })
+      const routeHead = (screen) => screen.pattern.split('/')[1] ?? ''
+      const isEntry = (screen) => screen.anonymous || screen.label
+      const related = (a, b) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
+
+      function ownersByTab(tabs) {
+        const byId = new Map(map.screens.map((s) => [s.id, s]))
+        const owner = new Map(tabs.map((tab) => [tab.id, tab.id]))
+        const parent = new Map()
+        const assign = (id, from, via) => (owner.set(id, from), parent.set(id, via))
+        for (const screen of map.screens) {
+          if (owner.has(screen.id) || isEntry(screen)) continue
+          const tab = tabs.find((t) => related(routeHead(t), routeHead(screen)))
+          if (tab) assign(screen.id, tab.id, tab.id)
+        }
+        const queue = [...owner.keys()]
+        while (queue.length) {
+          const id = queue.shift()
+          for (const edge of map.edges) {
+            const target = byId.get(edge.to)
+            if (edge.from !== id || edge.kind === 'tab' || !target) continue
+            if (owner.has(target.id) || isEntry(target)) continue
+            assign(target.id, owner.get(id), id)
+            queue.push(target.id)
+          }
+        }
+        for (const screen of map.screens) {
+          if (owner.has(screen.id) || isEntry(screen)) continue
+          const sibling = map.screens.find((s) => owner.has(s.id) && routeHead(s) === routeHead(screen))
+          if (sibling) assign(screen.id, owner.get(sibling.id), sibling.id)
+        }
+        return { owner, parent }
+      }
+
+      function treeOrder(rootId, parent) {
+        const children = (id) => map.screens.filter((s) => parent.get(s.id) === id && s.id !== id)
+        const walk = (screen) => [screen, ...children(screen.id).flatMap(walk)]
+        return walk(map.screens.find((s) => s.id === rootId))
+      }
+
+      function lanes() {
+        const tabIds = new Set(
+          map.edges.filter((e) => e.kind === 'tab').flatMap((e) => [e.from, e.to]),
+        )
+        const tabs = map.screens.filter((s) => tabIds.has(s.id))
+        const { owner, parent } = ownersByTab(tabs)
+        const flows = new Map()
+        for (const screen of map.screens.filter((s) => s.label)) {
+          const base = screen.id.split('#')[0]
+          flows.set(base, [...(flows.get(base) ?? []), screen])
+        }
+        return [
+          { title: 'signed out', screens: map.screens.filter((s) => s.anonymous && !s.label) },
+          ...[...flows.values()].map((screens) => ({ title: screens[0].pattern, screens })),
+          ...tabs.map((tab) => ({
+            title: tab.pattern,
+            screens: treeOrder(tab.id, parent),
+          })),
+          { title: 'unlinked', screens: map.screens.filter((s) => !owner.has(s.id) && !isEntry(s)) },
+        ].filter((lane) => lane.screens.length)
       }
 
       function layout() {
         positions.clear()
-        const titles = []
-        let x = 0
-        for (const group of groupsInOrder()) {
-          const screens = map.screens.filter((s) => s.group === group)
-          titles.push({ group, x })
-          const cols = Math.ceil(screens.length / ROWS)
-          screens.forEach((screen, index) => {
-            positions.set(screen.id, {
-              x: x + (index % cols) * (NODE_W + GAP_X / 2),
-              y: 70 + Math.floor(index / cols) * (NODE_H + GAP_Y),
-            })
-          })
-          x += cols * (NODE_W + GAP_X / 2) + GAP_X
-        }
-        return titles
+        return lanes().map((lane, row) => {
+          const y = 70 + row * (NODE_H + GAP_Y)
+          lane.screens.forEach((screen, col) =>
+            positions.set(screen.id, { x: col * (NODE_W + GAP_X), y }),
+          )
+          return { title: lane.title, y }
+        })
       }
 
       const ARROW_COLORS = { arrow: '#3a3d44', 'arrow-out': '#22c55e', 'arrow-in': '#60a5fa' }
@@ -291,11 +333,12 @@
       function render() {
         canvas.querySelectorAll('.node, .group-title').forEach((el) => el.remove())
         nodes.clear()
-        for (const { group, x } of layout()) {
+        for (const { title: text, y } of layout()) {
           const title = document.createElement('div')
           title.className = 'group-title'
-          title.textContent = group
-          title.style.left = `${x}px`
+          title.textContent = text
+          title.style.left = '0px'
+          title.style.top = `${y - 60}px`
           canvas.appendChild(title)
         }
         for (const screen of map.screens) {

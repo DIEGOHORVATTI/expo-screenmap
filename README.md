@@ -107,8 +107,10 @@ export default defineConfig({
 | `expandScreens`  |                 | `(screens, appRoot) => screens` to split a screen into variants.        |
 | `extraEdges`     |                 | `(screens) => edges` for links the source scan cannot see.              |
 
-Screens are laid out in the order their `_layout.tsx` declares them
-(`<Stack.Screen name="…" />`, tab bar order), row by row.
+The map reads like the app: signed-out screens first, then one row per variant
+flow, then one row per tab (tab bar order) holding the screens opened from it,
+each right after the screen that opens it. Screens nothing links to end up in
+`unlinked`. Order between siblings follows `<Stack.Screen name>` in `_layout.tsx`.
 
 <img width="2796" height="1649" alt="image" src="https://github.com/user-attachments/assets/dfc4a187-d9c7-4468-9146-3dd78c183888" />
 
