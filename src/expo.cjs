@@ -24,10 +24,10 @@ function withScreenmapMetro(config) {
   const reactVersion = require(reactPackage).version.replaceAll('.', '\\.')
   const mismatchedReactDom = new RegExp(`[/\\\\]react-dom@(?!${reactVersion}\\+)`)
   config.resolver.blockList = [...asList(config.resolver.blockList), mismatchedReactDom]
-  config.resolver.nodeModulesPaths = [
+  config.resolver.nodeModulesPaths = [...new Set([
     ...asList(config.resolver.nodeModulesPaths),
     ...nodeModulesAbove(projectRoot),
-  ]
+  ])]
   return config
 }
 
