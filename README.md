@@ -14,22 +14,30 @@ screens and re-captures only the screens affected when you save a file.
 
 - [Bun](https://bun.sh) ≥ 1.2 (the CLI runs on Bun).
 - Playwright Chromium: `bunx playwright install chromium chromium-headless-shell`.
-- Your app must build for web. If it does not ship web, enable it only when
-  `SCREENMAP=1` (set by the CLI when it starts Metro):
+- Your app must build for web. Wrap your configs; both helpers are no-ops unless
+  `SCREENMAP=1` (set by the CLI when it starts Metro), so native builds are untouched:
 
 ```ts
 // app.config.ts
-const config = {
-  ...expo,
-  ...(process.env.SCREENMAP === '1'
-    ? { platforms: ['ios', 'android', 'web'], web: { ...expo.web, output: 'single' } }
-    : {}),
-}
+import { withScreenmapWeb } from 'expo-screenmap/expo'
 
-export default config
+export default withScreenmapWeb({ ...expo })
 ```
 
-and install the web deps (`npx expo install react-dom react-native-web @expo/metro-runtime`).
+```js
+// metro.config.js
+const { withScreenmapMetro } = require('expo-screenmap/expo')
+
+module.exports = withScreenmapMetro(getDefaultConfig(__dirname))
+```
+
+  `withScreenmapWeb` adds the `web` platform with `output: 'single'`.
+  `withScreenmapMetro` blocks `react-dom` copies built for another React version
+  (Bun isolated installs link several) and lets Metro find the web deps installed
+  higher up in a monorepo.
+
+- Install the web deps where Metro can reach them:
+  `bun add -d react-dom react-native-web @expo/metro-runtime` (match your React version).
 
 ## Usage
 

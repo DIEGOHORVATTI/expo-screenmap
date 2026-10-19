@@ -21,7 +21,11 @@
     "expo-screenmap": "./src/cli.ts"
   },
   "exports": {
-    ".": "./src/config.ts"
+    ".": "./src/config.ts",
+    "./expo": {
+      "types": "./src/expo.d.cts",
+      "default": "./src/expo.cjs"
+    }
   },
   "files": [
     "src",

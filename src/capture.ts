@@ -24,7 +24,7 @@ type CapturePoolOptions = {
 const SETTLE_MS = 1200
 const NETWORK_IDLE_TIMEOUT_MS = 8000
 const SPINNER_TIMEOUT_MS = 5000
-const HIDE_DEV_OVERLAYS = '#error-toast { display: none !important; }'
+const HIDE_DEV_OVERLAYS = '#error-toast { display: none !important; } video { visibility: hidden !important; }'
 
 function noVisibleSpinner() {
   return ![...document.querySelectorAll('[role="progressbar"]')].some(
