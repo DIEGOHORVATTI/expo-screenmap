@@ -245,7 +245,9 @@
         }
         for (const screen of map.screens) {
           if (owner.has(screen.id) || isEntry(screen)) continue
-          const sibling = map.screens.find((s) => owner.has(s.id) && routeHead(s) === routeHead(screen))
+          const sibling = map.screens.find(
+            (s) => owner.has(s.id) && routeHead(s) === routeHead(screen),
+          )
           if (sibling) assign(screen.id, owner.get(sibling.id), sibling.id)
         }
         return { owner, parent }
@@ -275,7 +277,10 @@
             title: tab.pattern,
             screens: treeOrder(tab.id, parent),
           })),
-          { title: 'unlinked', screens: map.screens.filter((s) => !owner.has(s.id) && !isEntry(s)) },
+          {
+            title: 'unlinked',
+            screens: map.screens.filter((s) => !owner.has(s.id) && !isEntry(s)),
+          },
         ].filter((lane) => lane.screens.length)
       }
 

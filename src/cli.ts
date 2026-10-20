@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 
 import { launchBrowser, openPhoneContext } from './browser'
@@ -67,6 +67,9 @@ async function run() {
     return config.expandScreens ? config.expandScreens(screens, config.appRoot) : screens
   }
   let screens: Screen[] = loadScreens()
+  const ignoredNavigation = new Set(
+    (config.ignoreNavigation ?? []).map((file) => resolve(config.appRoot, file)),
+  )
   let edges: Edge[] = allEdges()
   const shots: Record<string, ShotResult> = existsSync(shotsIndex)
     ? JSON.parse(readFileSync(shotsIndex, 'utf8'))
@@ -78,6 +81,7 @@ async function run() {
           graph,
           screens.filter((screen) => !screen.id.includes('#')),
           registry,
+          ignoredNavigation,
         ),
         screens,
         config.variants,

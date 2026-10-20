@@ -34,12 +34,12 @@ const { withScreenmapMetro } = require('expo-screenmap/expo')
 module.exports = withScreenmapMetro(getDefaultConfig(__dirname))
 ```
 
-  `withScreenmapWeb` is for apps that do not ship web: it adds the `web` platform
-  with `output: 'single'` under screenmap and otherwise pins `['ios', 'android']`,
-  so installing `react-native-web` does not change your Expo fingerprint.
-  `withScreenmapMetro` blocks `react-dom` copies built for another React version
-  (Bun isolated installs link several) and lets Metro find the web deps installed
-  higher up in a monorepo.
+`withScreenmapWeb` is for apps that do not ship web: it adds the `web` platform
+with `output: 'single'` under screenmap and otherwise pins `['ios', 'android']`,
+so installing `react-native-web` does not change your Expo fingerprint.
+`withScreenmapMetro` blocks `react-dom` copies built for another React version
+(Bun isolated installs link several) and lets Metro find the web deps installed
+higher up in a monorepo.
 
 - Install the web deps where Metro can reach them:
   `bun add -d react-dom react-native-web @expo/metro-runtime` (match your React version).
@@ -89,26 +89,27 @@ export default defineConfig({
 })
 ```
 
-| Option           | Default         | Description                                                             |
-| ---------------- | --------------- | ----------------------------------------------------------------------- |
-| `root`           | `.`             | App directory (the one with `app/` and `node_modules/.bin/expo`).       |
-| `outDir`         | `.screenmap`    | Screenshots, session and logs.                                          |
-| `watch`          | `['app','src']` | Directories watched for changes, relative to `root`.                    |
-| `appPort`        | `8099`          | Metro web port.                                                         |
-| `mapPort`        | `8100`          | Map viewer port (`SCREENMAP_PORT` overrides).                           |
-| `concurrency`    | `3`             | Parallel captures.                                                      |
-| `locale`         | `en-US`         | Browser locale.                                                         |
-| `colorScheme`    | `light`         | `light` or `dark`.                                                      |
-| `loginPath`      | `/login`        | Route opened by `expo-screenmap login`.                                 |
-| `chromePath`     |                 | Chromium executable, when Playwright's cache is not found.              |
-| `params`         | `{}`            | Fixed URL per screen id.                                                |
-| `storage`        | `{}`            | `localStorage` entries set before every page loads.                     |
-| `loggedOut`      |                 | `(screen) => boolean`: capture these screens without the saved session. |
-| `variants`       |                 | Per screen id, a list of `{ name, storage?, anonymous? }` captured as separate, chained nodes (multi-step flows). |
-| `pathRegistry`   |                 | Module exporting an object of paths / path builders.                    |
-| `dynamicScreens` | `{}`            | Per screen id: API `sources` (`endpoint` path or RegExp, `pick` dotted path or function) and an optional `url` (defaults to the route with the id filled in). |
-| `expandScreens`  |                 | `(screens, appRoot) => screens` to split a screen into variants.        |
-| `extraEdges`     |                 | `(screens) => edges` for links the source scan cannot see.              |
+| Option             | Default         | Description                                                                                                                                                   |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `root`             | `.`             | App directory (the one with `app/` and `node_modules/.bin/expo`).                                                                                             |
+| `outDir`           | `.screenmap`    | Screenshots, session and logs.                                                                                                                                |
+| `watch`            | `['app','src']` | Directories watched for changes, relative to `root`.                                                                                                          |
+| `appPort`          | `8099`          | Metro web port.                                                                                                                                               |
+| `mapPort`          | `8100`          | Map viewer port (`SCREENMAP_PORT` overrides).                                                                                                                 |
+| `concurrency`      | `3`             | Parallel captures.                                                                                                                                            |
+| `locale`           | `en-US`         | Browser locale.                                                                                                                                               |
+| `colorScheme`      | `light`         | `light` or `dark`.                                                                                                                                            |
+| `loginPath`        | `/login`        | Route opened by `expo-screenmap login`.                                                                                                                       |
+| `chromePath`       |                 | Chromium executable, when Playwright's cache is not found.                                                                                                    |
+| `params`           | `{}`            | Fixed URL per screen id.                                                                                                                                      |
+| `storage`          | `{}`            | `localStorage` entries set before every page loads.                                                                                                           |
+| `loggedOut`        |                 | `(screen) => boolean`: capture these screens without the saved session.                                                                                       |
+| `variants`         |                 | Per screen id, a list of `{ name, storage?, anonymous? }` captured as separate, chained nodes (multi-step flows).                                             |
+| `pathRegistry`     |                 | Module exporting an object of paths / path builders.                                                                                                          |
+| `dynamicScreens`   | `{}`            | Per screen id: API `sources` (`endpoint` path or RegExp, `pick` dotted path or function) and an optional `url` (defaults to the route with the id filled in). |
+| `expandScreens`    |                 | `(screens, appRoot) => screens` to split a screen into variants.                                                                                              |
+| `extraEdges`       |                 | `(screens) => edges` for links the source scan cannot see.                                                                                                    |
+| `ignoreNavigation` |                 | Files (relative to `root`) whose navigation is not a link, e.g. a 401 redirect or a back fallback.                                                            |
 
 The map reads like the app: signed-out screens first, then one row per variant
 flow, then one row per tab (tab bar order) holding the screens opened from it,
@@ -116,7 +117,6 @@ each right after the screen that opens it. Screens nothing links to end up in
 `unlinked`. Order between siblings follows `<Stack.Screen name>` in `_layout.tsx`.
 
 <img width="2796" height="1649" alt="image" src="https://github.com/user-attachments/assets/dfc4a187-d9c7-4468-9146-3dd78c183888" />
-
 
 ## License
 

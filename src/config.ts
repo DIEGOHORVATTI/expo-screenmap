@@ -28,6 +28,7 @@ export type ScreenmapConfig = {
   dynamicScreens?: Record<string, DynamicScreen>
   expandScreens?: (screens: Screen[], appRoot: string) => Screen[]
   extraEdges?: (screens: Screen[]) => Edge[]
+  ignoreNavigation?: string[]
 }
 
 export type ResolvedConfig = Required<
