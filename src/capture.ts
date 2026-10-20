@@ -25,14 +25,18 @@ const QUIET_MS = 1500
 const QUIET_TIMEOUT_MS = 20_000
 const POLL_MS = 200
 const TAP_TIMEOUT_MS = 8000
+const VIDEO_TIMEOUT_MS = 5000
 const STREAMING_TYPES = new Set(['websocket', 'eventsource'])
-const HIDE_DEV_OVERLAYS =
-  '#error-toast { display: none !important; } video { visibility: hidden !important; }'
+const HIDE_DEV_OVERLAYS = '#error-toast { display: none !important; }'
 
 function noVisibleSpinner() {
   return ![...document.querySelectorAll('[role="progressbar"]')].some(
     (element) => (element as HTMLElement).offsetParent !== null,
   )
+}
+
+function videosPlaying() {
+  return [...document.querySelectorAll('video')].every((video) => video.readyState >= 2)
 }
 
 function trackInflight(page: Page) {
@@ -76,6 +80,7 @@ async function captureOne(job: ShotJob, options: CapturePoolOptions): Promise<Sh
       await page.locator(job.via.tap).first().click({ force: true, timeout: TAP_TIMEOUT_MS })
     }
     await waitUntilQuiet(page, inflight)
+    await page.waitForFunction(videosPlaying, null, { timeout: VIDEO_TIMEOUT_MS }).catch(() => {})
     await page.addStyleTag({ content: HIDE_DEV_OVERLAYS })
     await page.screenshot({ path: join(options.shotsDir, shotFileName(job.id)) })
   } catch (error) {

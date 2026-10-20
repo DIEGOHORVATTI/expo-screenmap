@@ -39,7 +39,11 @@ export function launchBrowser(headed = false, chromePath?: string) {
   return chromium.launch({
     executablePath,
     headless: !headed,
-    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    args: [
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      `--use-file-for-fake-video-capture=${join(import.meta.dir, 'fake-camera.mjpeg')}`,
+    ],
   })
 }
 
