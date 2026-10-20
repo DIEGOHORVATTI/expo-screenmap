@@ -4,6 +4,9 @@ A live map of every screen in an Expo Router app. It runs your app on Metro web,
 screenshots each route in a phone-sized headless Chromium, draws the links between
 screens and re-captures only the screens affected when you save a file.
 
+<img width="2793" height="1644" alt="image" src="https://github.com/user-attachments/assets/d2e97145-35c5-488b-b52d-22d301bc5b76" />
+
+
 - Screens come from the `app/` directory (groups, `index`, dynamic segments).
 - Links come from the source: `router.push('/x')`, `href="/x"`, `pathname: '/x'`
   and, optionally, a path registry object such as `PATHS.workout.detail(id)`.
