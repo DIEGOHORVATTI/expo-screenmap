@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="128" alt="expo-screenmap"></p>
+
 # expo-screenmap
 
 A live map of every screen in an Expo Router app. It runs your app on Metro web,
